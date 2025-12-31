@@ -2,17 +2,21 @@ import uuid
 from sqlmodel import Field, SQLModel
 
 
+def generate_agent_id() -> str:
+    return uuid.uuid4().hex
+
+
 class AgentBase(SQLModel):
     name: str = Field()
     instructions: str = Field()
 
 
 class Agent(AgentBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: str = Field(default_factory=generate_agent_id, primary_key=True)
 
 
 class AgentPublic(AgentBase):
-    id: uuid.UUID
+    id: str
 
 
 class AgentCreate(AgentBase):

@@ -1,10 +1,9 @@
-from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
 from ..models.agent import Agent, AgentPublic, AgentCreate, AgentUpdate
 from ..database import SessionDep
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(tags=["agents"])
 
 
 @router.post(
@@ -61,7 +60,7 @@ def read_agents(session: SessionDep):
         },
     },
 )
-def read_agent(agent_id: UUID, session: SessionDep):
+def read_agent(agent_id: str, session: SessionDep):
     agent = session.get(Agent, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -87,7 +86,7 @@ def read_agent(agent_id: UUID, session: SessionDep):
         },
     },
 )
-def update_agent(agent_id: UUID, agent: AgentUpdate, session: SessionDep):
+def update_agent(agent_id: str, agent: AgentUpdate, session: SessionDep):
     agent_db = session.get(Agent, agent_id)
     if not agent_db:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -122,7 +121,7 @@ def update_agent(agent_id: UUID, agent: AgentUpdate, session: SessionDep):
         },
     },
 )
-def delete_agent(agent_id: UUID, session: SessionDep):
+def delete_agent(agent_id: str, session: SessionDep):
     agent = session.get(Agent, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
