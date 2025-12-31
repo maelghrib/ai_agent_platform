@@ -1,6 +1,6 @@
 import uuid
 from sqlmodel import Field, SQLModel, Relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -13,7 +13,7 @@ def generate_session_id() -> str:
 
 class ChatSessionBase(SQLModel):
     name: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ChatSession(ChatSessionBase, table=True):
