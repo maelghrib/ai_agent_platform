@@ -7,7 +7,19 @@ from ..database import SessionDep
 router = APIRouter(tags=["chat_sessions"])
 
 
-@router.post("/", response_model=ChatSessionPublic)
+@router.post(
+    "/",
+    response_model=ChatSessionPublic,
+    status_code=201,
+    summary="Create a chat session",
+    description="Create a new chat session for a specific agent. "
+                "If no name is provided, the session will be named automatically "
+                "as `Chat N` where N is the next session number for that agent.",
+    responses={
+        201: {"description": "Chat session created successfully"},
+        404: {"description": "Agent not found"},
+    },
+)
 def create_chat_session(agent_id: str, chat_session: ChatSessionCreate, session: SessionDep):
     agent = session.get(Agent, agent_id)
     if not agent:
@@ -30,7 +42,16 @@ def create_chat_session(agent_id: str, chat_session: ChatSessionCreate, session:
     return db_chat_session
 
 
-@router.get("/", response_model=list[ChatSessionPublic])
+@router.get(
+    "/",
+    response_model=list[ChatSessionPublic],
+    summary="List chat sessions",
+    description="Retrieve all chat sessions belonging to a specific agent.",
+    responses={
+        200: {"description": "List of chat sessions"},
+        404: {"description": "Agent not found"},
+    },
+)
 def read_chat_sessions(agent_id: str, session: SessionDep):
     agent = session.get(Agent, agent_id)
     if not agent:
@@ -39,7 +60,16 @@ def read_chat_sessions(agent_id: str, session: SessionDep):
     return chat_sessions
 
 
-@router.get("/{chat_session_id}", response_model=ChatSessionPublic)
+@router.get(
+    "/{chat_session_id}",
+    response_model=ChatSessionPublic,
+    summary="Get a chat session",
+    description="Retrieve a single chat session by its ID, scoped to an agent.",
+    responses={
+        200: {"description": "Chat session found"},
+        404: {"description": "Agent or chat session not found"},
+    },
+)
 def read_chat_session(agent_id: str, chat_session_id: str, session: SessionDep):
     agent = session.get(Agent, agent_id)
     if not agent:
@@ -54,7 +84,16 @@ def read_chat_session(agent_id: str, chat_session_id: str, session: SessionDep):
     return chat_session
 
 
-@router.patch("/{chat_session_id}", response_model=ChatSessionPublic)
+@router.patch(
+    "/{chat_session_id}",
+    response_model=ChatSessionPublic,
+    summary="Update a chat session",
+    description="Partially update a chat session. Only provided fields are updated.",
+    responses={
+        200: {"description": "Chat session updated successfully"},
+        404: {"description": "Agent or chat session not found"},
+    },
+)
 def update_chat_session(agent_id: str, chat_session_id: str, chat_session: ChatSessionUpdate, session: SessionDep):
     agent = session.get(Agent, agent_id)
     if not agent:
@@ -74,7 +113,15 @@ def update_chat_session(agent_id: str, chat_session_id: str, chat_session: ChatS
     return chat_session_db
 
 
-@router.delete("/{chat_session_id}")
+@router.delete(
+    "/{chat_session_id}",
+    summary="Delete a chat session",
+    description="Delete a chat session belonging to a specific agent.",
+    responses={
+        200: {"description": "Chat session deleted successfully"},
+        404: {"description": "Agent or chat session not found"},
+    },
+)
 def delete_chat_session(agent_id: str, chat_session_id: str, session: SessionDep):
     agent = session.get(Agent, agent_id)
     if not agent:
