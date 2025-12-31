@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from .database import create_db_and_tables
 from .routers import agents
 
@@ -12,11 +13,13 @@ app = FastAPI(
 )
 
 
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(fastapi_app: FastAPI):
     create_db_and_tables()
+    yield
 
 
+app.router.lifespan_context = lifespan(fastapi_app=app)
 app.include_router(agents.router)
 
 
