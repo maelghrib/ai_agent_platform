@@ -61,7 +61,33 @@ async def get_openai_agent_response(db_agent: Agent, user_message: str, chat_ses
     return str(openai_agent_response.final_output)
 
 
-@router.post("/", response_model=MessagePublic)
+@router.post(
+    "/",
+    response_model=MessagePublic,
+    summary="Send a message to an agent",
+    description="""
+Send a user message to an AI agent within a chat session.
+
+The system will:
+1. Store the user message
+2. Load chat history
+3. Generate an AI response using the agent
+4. Store and return the AI response
+""",
+    responses={
+        404: {
+            "description": "Agent or Chat Session not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Agent not found"}
+                }
+            },
+        },
+        200: {
+            "description": "Agent response message",
+        },
+    },
+)
 async def send_message(agent_id: str, chat_session_id: str, message: MessageCreate, session: SessionDep):
     db_agent = session.get(Agent, agent_id)
     if not db_agent:
