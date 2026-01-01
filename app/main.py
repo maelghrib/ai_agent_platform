@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from .database import create_db_and_tables
-from .routers import agents, chat_sessions
+from .routers import agents, chat_sessions, messages
 
 
 @asynccontextmanager
@@ -20,8 +20,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(agents.router, prefix="/agents")
-app.include_router(chat_sessions.router, prefix="/agents/{agent_id}/chat_sessions")
+app.include_router(
+    router=agents.router,
+    prefix="/agents"
+)
+app.include_router(
+    router=chat_sessions.router,
+    prefix="/agents/{agent_id}/chat_sessions"
+)
+app.include_router(
+    router=messages.router,
+    prefix="/agents/{agent_id}/chat_sessions/{chat_session_id}/messages"
+)
 
 
 @app.get("/")
