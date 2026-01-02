@@ -33,10 +33,10 @@ ELEVENLABS_API_KEY=<elevenlabs-api-key>
 ``` shell
 docker compose up -d --build
 ```
-* The FastAPI app will be accessible at `http://127.0.0.1:8000`
-* Swagger/OpenAPI API documentation: `http://127.0.0.1:8000/docs`
-* ReDoc API documentation: `http://127.0.0.1:8000/redoc`
-* Postman Collection: `https://www.postman.com/maelghrib/personal-projects/collection/34947427-339968ac-d5ca-4b5f-8a1a-45edca03a6c4`
+* The FastAPI app will be accessible at http://127.0.0.1:8000
+* Swagger/OpenAPI API documentation: http://127.0.0.1:8000/docs
+* ReDoc API documentation: http://127.0.0.1:8000/redoc
+* Postman Collection: https://www.postman.com/maelghrib/personal-projects/collection/34947427-339968ac-d5ca-4b5f-8a1a-45edca03a6c4
 
 ### Run Tests:
 
