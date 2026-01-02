@@ -43,7 +43,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={
-            "error": exc.detail,
+            "detail": exc.detail,
             "path": request.url.path,
         },
     )
@@ -55,7 +55,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content={
-            "error": "Validation failed",
+            "detail": "Validation failed",
             "details": exc.errors(),
             "path": request.url.path,
         },
@@ -68,7 +68,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={
-            "error": "Internal server error",
+            "detail": "Internal server error",
             "path": request.url.path,
         },
     )

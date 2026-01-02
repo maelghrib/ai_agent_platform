@@ -17,7 +17,7 @@ def test_create_agent(client):
         json=create_agent_input
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     data = response.json()
     assert "id" in data

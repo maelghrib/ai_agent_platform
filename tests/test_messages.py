@@ -14,7 +14,7 @@ def mock_agent_response(monkeypatch):
     )
 
 
-def test_send_message_success(
+def test_send_text_message_success(
         client,
         create_test_db,
         session_override,
@@ -35,8 +35,8 @@ def test_send_message_success(
     session_override.commit()
 
     response = client.post(
-        "/agents/agent_1/chat_sessions/chat_1/messages",
-        json={"role": "user", "content": "Hello"},
+        "/agents/agent_1/chat_sessions/chat_1/messages/text",
+        json={"content": "Hello"},
     )
 
     assert response.status_code == 200

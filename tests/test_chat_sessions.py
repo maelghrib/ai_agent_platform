@@ -6,7 +6,7 @@ def create_agent(client):
             "instructions": "You are an agent who helps in answering football questions"
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     return response.json()["id"]
 
 
