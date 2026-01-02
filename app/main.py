@@ -1,13 +1,28 @@
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
+
 from .database import create_db_and_tables
 from .routers import agents, chat_sessions, messages
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_db_and_tables()
-    yield
+    try:
+        logger.info("Starting application...")
+        create_db_and_tables()
+        logger.info("Database initialized successfully.")
+        yield
+    except Exception as e:
+        logger.exception("Application startup failed.")
+        raise e
+    finally:
+        logger.info("Shutting down application...")
 
 
 app = FastAPI(
@@ -19,6 +34,45 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+
+# Global Exception Handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    logger.warning(f"HTTP error {exc.status_code}: {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "path": request.url.path,
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.warning(f"Validation error: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Validation failed",
+            "details": exc.errors(),
+            "path": request.url.path,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled server error")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "path": request.url.path,
+        },
+    )
+
 
 app.include_router(
     router=agents.router,

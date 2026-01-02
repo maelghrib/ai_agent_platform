@@ -18,7 +18,7 @@ class MessageRole(str, Enum):
 
 
 class MessageBase(SQLModel):
-    role: MessageRole = Field()
+    role: MessageRole = Field(default=MessageRole.user)
     content: str = Field()
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
