@@ -1,7 +1,9 @@
 import os
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status, UploadFile, File, Body, Query
+from fastapi.responses import FileResponse
 from sqlmodel import select
+from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from agents import (
@@ -12,6 +14,9 @@ from agents import (
     set_default_openai_client,
     set_tracing_disabled,
 )
+from elevenlabs.client import ElevenLabs
+from io import BytesIO
+
 from ..models.agent import Agent
 from ..models.chat_session import ChatSession
 from ..models.message import Message, MessagePublic, MessageCreate, MessageRole
@@ -20,6 +25,8 @@ from ..database import SessionDep
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+elevenlabs = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
 router = APIRouter(tags=["messages"])
 
@@ -117,19 +124,79 @@ async def get_openai_agent_response(
         raise RuntimeError("OpenAI agent response generation failed") from e
 
 
-import logging
-from fastapi import status
-from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import select
+async def convert_speech_to_text(audio_file: UploadFile | None = File(None)) -> str | None:
+    """
+    Convert an uploaded audio file to text using ElevenLabs speech-to-text.
 
-logger = logging.getLogger(__name__)
+    Args:
+        audio_file (UploadFile | None): Audio file uploaded by the client.
+
+    Returns:
+        str | None: Transcribed text, or None if no file is provided.
+    """
+    if audio_file is None:
+        logger.debug("No audio file provided for transcription")
+        return None
+
+    try:
+        audio_bytes = await audio_file.read()
+        audio_data = BytesIO(audio_bytes)
+
+        transcription = elevenlabs.speech_to_text.convert(
+            file=audio_data,
+            model_id="scribe_v1",
+            tag_audio_events=True,
+            language_code="eng",
+            diarize=True,
+        )
+
+        logger.info("Audio transcription successful for file=%s", audio_file.filename)
+        return transcription.text
+
+    except Exception as e:
+        logger.exception("Failed to convert speech to text for file=%s", getattr(audio_file, "filename", None))
+        raise RuntimeError("Speech-to-text conversion failed") from e
+    finally:
+        await audio_file.close()
+
+
+async def convert_text_to_speech(message: Message) -> str:
+    """
+    Convert a message's text content to speech and save it as an MP3 file.
+
+    Args:
+        message (Message): Message object containing the text to convert.
+
+    Returns:
+        str: Path to the generated MP3 file.
+    """
+    try:
+        audio_generator = elevenlabs.text_to_speech.convert(
+            text=message.content,
+            voice_id="JBFqnCBsd6RMkjVDRZzb",
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128",
+        )
+
+        audio_bytes = b"".join(audio_generator)
+
+        file_path = f"/tmp/{message.id}.mp3"
+        with open(file_path, "wb") as f:
+            f.write(audio_bytes)
+
+        logger.info("Text-to-speech generated successfully for message_id=%s", message.id)
+        return file_path
+
+    except Exception as e:
+        logger.exception("Failed to convert text to speech for message_id=%s", message.id)
+        raise RuntimeError("Text-to-speech conversion failed") from e
 
 
 @router.post(
-    "/",
+    "/text",
     response_model=MessagePublic,
     status_code=status.HTTP_200_OK,
-    summary="Send a message to an agent",
+    summary="Send a text message to an agent",
     description="""
 Send a user message to an AI agent within a chat session.
 
@@ -144,7 +211,12 @@ The system will:
         500: {"description": "Internal server error"},
     },
 )
-async def send_message(agent_id: str, chat_session_id: str, message: MessageCreate, session: SessionDep):
+async def send_text_message(
+        agent_id: str,
+        chat_session_id: str,
+        message: MessageCreate,
+        session: SessionDep,
+):
     try:
         logger.debug("Sending message to agent_id=%s, chat_session_id=%s", agent_id, chat_session_id)
 
@@ -202,6 +274,124 @@ async def send_message(agent_id: str, chat_session_id: str, message: MessageCrea
         )
 
         return db_agent_response_message
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.exception(
+            "Database error while sending message to agent_id=%s, chat_session_id=%s",
+            agent_id,
+            chat_session_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to store or retrieve messages"
+        ) from e
+
+    except Exception as e:
+        logger.exception(
+            "Unexpected error while sending message to agent_id=%s, chat_session_id=%s",
+            agent_id,
+            chat_session_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process message"
+        ) from e
+
+
+@router.post(
+    "/voice",
+    response_model=MessagePublic,
+    status_code=status.HTTP_200_OK,
+    summary="Send a voice message to an agent",
+    description="""
+Send a voice message to an AI agent within a chat session.
+
+The system will:
+1. Convert voice message to text message
+2. Store the text message
+2. Load chat history
+3. Generate an AI response using the agent
+4. Store the AI response
+5. Convert the AI response to voice
+6. Retrun the voice message file
+""",
+    responses={
+        404: {"description": "Agent or Chat Session not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def send_voice_message(
+        agent_id: str,
+        chat_session_id: str,
+        file: UploadFile,
+        session: SessionDep,
+):
+    try:
+        logger.debug("Sending message to agent_id=%s, chat_session_id=%s", agent_id, chat_session_id)
+
+        db_agent = session.get(Agent, agent_id)
+        if not db_agent:
+            logger.info("Agent not found (id=%s)", agent_id)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+        chat_session = session.exec(
+            select(ChatSession)
+            .where(ChatSession.id == chat_session_id)
+            .where(ChatSession.agent_id == agent_id)
+        ).first()
+        if not chat_session:
+            logger.info("Chat session not found (id=%s) for agent_id=%s", chat_session_id, agent_id)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat session not found")
+
+        user_input = await convert_speech_to_text(audio_file=file)
+
+        db_user_message = Message(
+            role=MessageRole.user,
+            content=user_input,
+            chat_session_id=chat_session.id,
+        )
+        session.add(db_user_message)
+        session.commit()
+        session.refresh(db_user_message)
+        logger.info(
+            "User message stored (message_id=%s) in chat_session_id=%s", db_user_message.id, chat_session.id
+        )
+
+        chat_session_history = await get_chat_session_history(chat_session=chat_session)
+
+        openai_agent_response = await get_openai_agent_response(
+            db_agent=db_agent,
+            user_message=user_input,
+            chat_session_history=chat_session_history
+        )
+        logger.info(
+            "OpenAI agent response generated for agent_id=%s, chat_session_id=%s",
+            agent_id,
+            chat_session.id
+        )
+
+        db_agent_response_message = Message(
+            role=MessageRole.assistant,
+            content=openai_agent_response,
+            chat_session_id=chat_session.id,
+        )
+        session.add(db_agent_response_message)
+        session.commit()
+        session.refresh(db_agent_response_message)
+        logger.info(
+            "AI response message stored (message_id=%s) in chat_session_id=%s",
+            db_agent_response_message.id,
+            chat_session.id
+        )
+
+        file_path = await convert_text_to_speech(message=db_agent_response_message)
+
+        return FileResponse(
+            path=file_path,
+            media_type="audio/mpeg",
+            filename=f"{db_agent_response_message.id}.mp3"
+        )
 
     except SQLAlchemyError as e:
         session.rollback()
