@@ -3,16 +3,30 @@ A platform that enables users to create, manage, and interact with AI agents via
 
 ---
 
+## Video Demo
+
+Watch now at https://youtu.be/PuX-5r-xIhY
+
+---
+
+## Tech Stacks
+- Backend: Python, FastAPI, Pytest, SQLite
+- AI: OpenAI Agents SDK, Elevenlabs SDK for Text-to-Speech and Speech-to-Text
+- Containerization: Docker, Docker Compose
+
+---
+
 ## Local Developement Setup
 
 ### Get environment variables
 
-Create a `.env` file in the project root containing your OpenAI credentials
+Create a `.env` file in the project root containing your [OpenAI](https://platform.openai.com/docs/quickstart) and [Elevenlabs](https://elevenlabs.io/docs/developers/quickstart) credentials
 
 ```env
 BASE_URL=https://api.openai.com/v1
 API_KEY=<your-openai-api-key>
 MODEL_NAME=<openai-model-id>
+ELEVENLABS_API_KEY=<elevenlabs-api-key>
 ```
 
 ### Build and start the container:
